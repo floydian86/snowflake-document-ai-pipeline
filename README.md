@@ -2,6 +2,8 @@
 
 A proof-of-concept (POC) implementation for extracting structured data from PDF documents using Snowflake's Document AI capabilities. This pipeline demonstrates how to load, process, and flatten PDF data into Snowflake tables for analysis.
 
+**Important Note**: PDF files processed by this pipeline may be unstructured. This pipeline is specifically designed to handle unstructured PDFs, and users should not expect source documents to be cleanly formatted. The system can process documents with varied layouts, inconsistent formatting, and mixed content types.
+
 ## Overview
 
 This project provides a complete end-to-end solution for:
@@ -145,6 +147,137 @@ SELECT * FROM invoice_kv_data;
 - `PARSE_DOCUMENT()`: Structure document content
 - `FLATTEN()`: Convert nested JSON to relational format
 - `LATERAL FLATTEN()`: Handle array elements
+
+## Working with Unstructured PDFs
+
+This pipeline is specifically designed to handle unstructured PDFs that may have inconsistent formatting, varied layouts, and mixed content types. Users should expect that source documents may not be cleanly formatted, and the pipeline includes several strategies to handle these challenges.
+
+### Common Challenges with Unstructured PDFs
+
+1. **Varied Layouts**: Documents with inconsistent page structures, different fonts, and varying spacing
+2. **Scanned Images**: PDF documents that contain scanned images rather than selectable text
+3. **Mixed Content**: Documents combining tables, free-form text, images, and forms
+4. **Inconsistent Formatting**: Documents with irregular column structures, merged cells, or split content across pages
+5. **Poor Quality Scans**: Low-resolution images, skewed text, or degraded document quality
+
+### Troubleshooting Highly Unstructured Documents
+
+#### For Documents with Poor Text Extraction:
+
+```sql
+-- Check extraction confidence scores
+SELECT 
+    file_name,
+    confidence_score,
+    extraction_method
+FROM document_extraction_metadata
+WHERE confidence_score < 0.8;
+
+-- Use alternative extraction methods for low-confidence results
+SELECT * FROM TABLE(
+    EXTRACT_DOCUMENT_TEXT('@pdf_stage/document.pdf', {'ocr_mode': 'force'})
+);
+```
+
+#### For Documents with Mixed Table and Text:
+
+```sql
+-- Separate table extraction from text extraction
+SELECT * FROM TABLE(
+    PARSE_DOCUMENT('@pdf_stage/document.pdf', {'extract_tables': true, 'extract_text': false})
+);
+
+-- Process text separately
+SELECT * FROM TABLE(
+    PARSE_DOCUMENT('@pdf_stage/document.pdf', {'extract_tables': false, 'extract_text': true})
+);
+```
+
+#### For Scanned Documents:
+
+```sql
+-- Enable OCR processing for image-based PDFs
+SELECT * FROM TABLE(
+    EXTRACT_DOCUMENT_TEXT('@pdf_stage/scanned_doc.pdf', 
+        {'ocr_enabled': true, 'image_quality': 'high'}
+    )
+);
+```
+
+### Post-Processing Techniques for Better Extraction Quality
+
+1. **Text Cleaning and Normalization**:
+   ```sql
+   -- Clean extracted text
+   SELECT 
+       REGEXP_REPLACE(extracted_text, '\s+', ' ') as cleaned_text,
+       TRIM(extracted_text) as trimmed_text
+   FROM document_text_data;
+   ```
+
+2. **Content Classification**:
+   ```sql
+   -- Classify content types
+   SELECT 
+       page_number,
+       CASE 
+           WHEN extracted_text LIKE '%table%' OR extracted_text LIKE '%|%' THEN 'table_content'
+           WHEN LENGTH(extracted_text) < 100 THEN 'header_footer'
+           ELSE 'body_text'
+       END as content_type
+   FROM document_text_data;
+   ```
+
+3. **Quality Assessment**:
+   ```sql
+   -- Assess extraction quality
+   SELECT 
+       file_name,
+       page_number,
+       LENGTH(extracted_text) as text_length,
+       (LENGTH(extracted_text) - LENGTH(REPLACE(extracted_text, ' ', ''))) as word_count,
+       confidence_score
+   FROM document_analysis
+   WHERE confidence_score IS NOT NULL;
+   ```
+
+### Recommended Workflow for Unstructured Documents
+
+1. **Initial Assessment**: Run basic extraction and check confidence scores
+2. **Quality Check**: Examine extracted content for completeness and accuracy
+3. **Adaptive Processing**: Apply different extraction parameters based on document type
+4. **Post-Processing**: Clean and normalize extracted data
+5. **Validation**: Compare results against expected content patterns
+
+### Performance Optimization Tips
+
+- **Batch Processing**: Process similar document types together for consistency
+- **Parameter Tuning**: Adjust OCR and extraction parameters based on document quality
+- **Staged Approach**: Process documents in stages (text first, then tables, then images)
+- **Quality Thresholds**: Set confidence score thresholds to determine processing approach
+
+```sql
+-- Example: Adaptive processing based on document characteristics
+WITH document_assessment AS (
+    SELECT 
+        file_name,
+        CASE 
+            WHEN file_size > 10000000 THEN 'large_document'
+            WHEN CONTAINS(file_name, 'scan') THEN 'scanned_document'
+            ELSE 'standard_document'
+        END as document_type
+    FROM stage_file_metadata
+)
+SELECT 
+    file_name,
+    document_type,
+    CASE document_type
+        WHEN 'large_document' THEN 'chunk_processing'
+        WHEN 'scanned_document' THEN 'ocr_processing'
+        ELSE 'standard_processing'
+    END as recommended_approach
+FROM document_assessment;
+```
 
 ## Troubleshooting
 
