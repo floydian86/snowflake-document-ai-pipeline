@@ -73,10 +73,11 @@ First, set up your Snowflake environment by running the complete database object
         5. Review suggested results; correct manually if needed.
         6. Once validated, publish the model build to finalize it for the downstream pipeline.
 
+![DOCUMENT AI MODEL BUILD SNAPSHOT](images/DOCAI_MODEL_BUILD.png)  
+
 
 
 ### Step 3: Create document processing pipeline
-    
     
         
         -- Execute the contents of doc_ai_pipeline_processing.sql
@@ -95,6 +96,17 @@ First, set up your Snowflake environment by running the complete database object
 **Download** the sample documents from the pdf_documents folder to your computer.
 **Upload** the extracted PDF files to the my_pdf_stage stage in Snowsight for processing.
 **Review** the extracted information in the pdf_reviews_flatten table to see the final result.
+
+### Step 5: Once files are uploaded, streams and tasks are automatically triggered, ingesting the data into the Snowflake table PDF_REVIEW_FLATTEN.
+
+
+![FLATTENED DATASET](images/FLATTEN_DATA.png)
+
+### Streamlit Dashboard Output
+*The Interactive dashboard displaying the extracted and flattened data.*
+
+![Dashboard View](images/MONITORING_DASHBOARD.png)  
+
 
 
 ### Resources
