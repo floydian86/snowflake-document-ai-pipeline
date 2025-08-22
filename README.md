@@ -17,6 +17,21 @@ This project provides a complete end-to-end solution for:
 - **Scalable Architecture**: Handle multiple documents efficiently
 - **SQL-Native**: All processing done within Snowflake using SQL
 
+## Workflow Snapshots
+
+### PDF Input Example
+
+![Sample PDF](images/PDF_FILE.png)  
+*Original sample PDF file uploaded to the pipeline.*
+
+---
+
+### Streamlit Dashboard Output
+
+![Dashboard View](images/MONITORING_DASHBOARD.png)  
+*Interactive dashboard displaying the extracted and flattened data.*
+
+
 # Snowflake Document AI Pipeline -  Guide
 
 Follow the step-by-step instructions to set up, test, and demonstrate the complete workflow for extracting data from PDF documents using Snowflake's Document AI capabilities.
